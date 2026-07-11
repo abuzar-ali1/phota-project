@@ -1,16 +1,18 @@
 "use client";
 
-import { Activity, ArrowLeftRight, CircleCheck, Database, ExternalLink, HeartPulse, LoaderCircle, MapPin, Menu, Route, ShieldCheck, Sparkles, X } from "lucide-react";
+import Link from "next/link";
+import { Activity, ArrowLeftRight, BadgeCheck, CircleCheck, Database, ExternalLink, HeartPulse, LoaderCircle, MapPin, Menu, Route, ShieldCheck, Sparkles, UserRound, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { findBestMatch } from "@/lib/matching";
-import type { ApiRecordsResponse, MedicalRecord, PortalMode } from "@/lib/types";
+import type { ApiRecordsResponse, HospitalProfile, MedicalRecord, PortalMode } from "@/lib/types";
 import { RecordTable } from "./RecordTable";
 import { RegistrationForm } from "./RegistrationForm";
 import { ToastViewport, type ToastItem } from "./ToastViewport";
+import { LogoutButton } from "./LogoutButton";
 
 type Match = { donor: MedicalRecord; patient: MedicalRecord } | null;
 
-export function MedicalDashboard({ mode, onSwitch }: { mode: PortalMode; onSwitch: () => void }) {
+export function MedicalDashboard({ mode, onSwitch, hospital }: { mode: PortalMode; onSwitch: () => void; hospital: HospitalProfile }) {
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -109,10 +111,12 @@ export function MedicalDashboard({ mode, onSwitch }: { mode: PortalMode; onSwitc
             <button onClick={() => setTab("operations")} className={`nav-btn ${tab === "operations" ? "active" : ""}`}>Operations</button>
             <button onClick={() => setTab("registry")} className={`nav-btn ${tab === "registry" ? "active" : ""}`}>Registry</button>
             <button onClick={onSwitch} className="ml-3 flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/5"><ArrowLeftRight className="size-3.5" /> Switch portal</button>
+            <Link href="/profile" className="ml-2 flex items-center gap-2 rounded-lg border border-emerald-300/15 bg-emerald-300/[.06] px-3 py-2 text-xs font-semibold text-emerald-200"><UserRound className="size-3.5"/>{hospital.hospitalName}<BadgeCheck className="size-3.5"/></Link>
+            <LogoutButton className="nav-btn ml-1"/>
           </nav>
           <button onClick={() => setMobileOpen(!mobileOpen)} className="rounded-lg border border-white/10 p-2 text-slate-300 md:hidden" aria-label="Toggle navigation">{mobileOpen ? <X /> : <Menu />}</button>
         </div>
-        {mobileOpen && <div className="grid gap-2 border-t border-white/8 p-4 md:hidden"><button onClick={() => { setTab("operations"); setMobileOpen(false); }} className="nav-btn active">Operations</button><button onClick={() => { setTab("registry"); setMobileOpen(false); }} className="nav-btn">Registry</button><button onClick={onSwitch} className="nav-btn">Switch portal</button></div>}
+        {mobileOpen && <div className="grid gap-2 border-t border-white/8 p-4 md:hidden"><button onClick={() => { setTab("operations"); setMobileOpen(false); }} className="nav-btn active">Operations</button><button onClick={() => { setTab("registry"); setMobileOpen(false); }} className="nav-btn">Registry</button><button onClick={onSwitch} className="nav-btn">Switch portal</button><Link href="/profile" className="nav-btn">Hospital profile</Link><LogoutButton className="nav-btn"/></div>}
       </header>
 
       <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 sm:py-8">

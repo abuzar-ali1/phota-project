@@ -1,0 +1,10 @@
+import Link from "next/link";
+import { HeartPulse, ShieldCheck } from "lucide-react";
+
+export function AuthShell({ eyebrow, title, description, children }: { eyebrow: string; title: string; description: string; children: React.ReactNode }) {
+  return <main className="auth-page min-h-screen px-4 py-8 sm:px-6"><div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl overflow-hidden rounded-[32px] border border-white/10 bg-[#071014]/90 shadow-[0_30px_100px_rgba(0,0,0,.48)] backdrop-blur-xl lg:grid-cols-[.9fr_1.1fr]">
+    <section className="relative hidden overflow-hidden border-r border-white/10 p-10 lg:flex lg:flex-col lg:justify-between"><div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(4,14,18,.82),rgba(4,18,21,.58),rgba(8,4,7,.86)),url('/surgery.jpg')] bg-cover bg-center" /><div className="relative"><Link href="/" className="flex w-fit items-center gap-3"><span className="grid size-11 place-items-center rounded-xl bg-emerald-300 text-slate-950"><HeartPulse /></span><span><strong className="block text-white">PHOTA</strong><small className="text-xs text-slate-400">Hospital Access Network</small></span></Link></div><div className="relative"><ShieldCheck className="mb-5 size-10 text-emerald-300"/><h2 className="max-w-sm text-4xl font-semibold tracking-tight text-white">Trusted hospitals. Protected patient coordination.</h2><p className="mt-4 max-w-md leading-7 text-slate-300">Every request is linked to an authenticated hospital and secured by server-verified access.</p></div></section>
+    <section className="flex items-center p-5 sm:p-8 lg:p-12"><div className="w-full"><Link href="/" className="mb-8 flex items-center gap-2 text-sm font-semibold text-emerald-300 lg:hidden"><HeartPulse className="size-5"/> PHOTA Hospital Network</Link><p className="text-xs font-bold uppercase tracking-[.2em] text-emerald-300">{eyebrow}</p><h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{title}</h1><p className="mt-3 max-w-xl leading-7 text-slate-400">{description}</p><div className="mt-8">{children}</div></div></section>
+  </div></main>;
+}
+

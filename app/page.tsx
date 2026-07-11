@@ -1,5 +1,9 @@
 import { PhotaApp } from "@/components/PhotaApp";
+import { getCurrentHospital } from "@/lib/auth";
 
-export default function Home() {
-  return <PhotaApp />;
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const hospital = await getCurrentHospital();
+  return <PhotaApp hospital={hospital ?? undefined} />;
 }

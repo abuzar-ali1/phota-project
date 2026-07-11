@@ -1,0 +1,4 @@
+import { NextResponse } from "next/server";
+import { requireAdmin, validRequestOrigin } from "@/lib/auth";
+import { reviewHospital } from "@/lib/db";
+export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){if(!validRequestOrigin(request))return NextResponse.json({error:"Invalid request origin."},{status:403});const auth=await requireAdmin();if(!auth.hospital)return NextResponse.json({error:auth.error},{status:auth.status});const body=await request.json();if(body.status!=="verified"&&body.status!=="rejected")return NextResponse.json({error:"Invalid verification status."},{status:400});const {id}=await params;const hospital=await reviewHospital(id,body.status,auth.hospital.id);if(!hospital)return NextResponse.json({error:"Hospital not found."},{status:404});return NextResponse.json({hospital});}

@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { Activity, ArrowRight, BookOpen, Building2, Dna, Droplets, GraduationCap, ShieldCheck } from "lucide-react";
-import type { PortalMode } from "@/lib/types";
+import Link from "next/link";
+import { Activity, ArrowRight, BadgeCheck, BookOpen, Building2, Dna, Droplets, GraduationCap, ShieldCheck, UserRound } from "lucide-react";
+import type { HospitalProfile, PortalMode } from "@/lib/types";
 
 const teamMembers = [
   { name: "Abuzar Ali", image: "/abuzar-ali.jpeg" },
@@ -11,11 +12,20 @@ const teamMembers = [
   { name: "Noor Fatima", image: "/noor.jpg" },
 ];
 
-export function PortalSelector({ onSelect }: { onSelect: (mode: PortalMode) => void }) {
+export function PortalSelector({ onSelect, hospital }: { onSelect: (mode: PortalMode) => void; hospital?: HospitalProfile }) {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-12">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,57,80,.14),transparent_34%),radial-gradient(circle_at_80%_75%,rgba(36,232,178,.13),transparent_35%)]" />
       <div className="relative w-full max-w-5xl animate-[fade-up_.7s_ease-out]">
+        <div className="mb-6 flex justify-end gap-2">
+          {hospital ? (
+            <Link href="/profile" className="group flex items-center gap-3 rounded-xl border border-emerald-300/20 bg-[#071014]/85 px-3 py-2 shadow-lg backdrop-blur-xl transition hover:border-emerald-200/35 hover:bg-emerald-300/[.08]">
+              <span className="grid size-9 place-items-center rounded-lg bg-emerald-300/10 text-emerald-300"><UserRound className="size-4" /></span>
+              <span className="text-left"><strong className="flex items-center gap-1.5 text-xs text-white">{hospital.hospitalName}{hospital.verificationStatus === "verified" && <BadgeCheck className="size-3.5 text-emerald-300" />}</strong><small className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{hospital.role === "admin" ? "Administrator profile" : `${hospital.verificationStatus} hospital profile`}</small></span>
+              <ArrowRight className="size-4 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-emerald-300" />
+            </Link>
+          ) : <><Link href="/login" className="secondary-btn">Hospital sign in</Link><Link href="/signup" className="rounded-lg bg-emerald-300 px-4 py-2 text-xs font-bold text-slate-950 transition hover:bg-emerald-200">Register hospital</Link></>}
+        </div>
         <div className="mb-10 text-center">
           <div className="mx-auto mb-5 flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[.22em] text-slate-300">
             <Activity className="size-4 text-emerald-300" /> PHOTA Command Network

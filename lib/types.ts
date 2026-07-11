@@ -37,3 +37,26 @@ export type ApiErrorResponse = {
   error: string;
 };
 
+export type VerificationStatus = "pending" | "verified" | "rejected";
+export type HospitalRole = "hospital" | "admin";
+
+export type HospitalProfile = {
+  id: string;
+  hospitalName: string;
+  hospitalType: string;
+  licenseNumber: string;
+  registrationAuthority: string;
+  officialEmail: string;
+  phone: string;
+  address: string;
+  city: string;
+  adminName: string;
+  adminTitle: string;
+  verificationStatus: VerificationStatus;
+  role: HospitalRole;
+  createdAt: string;
+  verifiedAt: string | null;
+  lastLoginAt: string | null;
+};
+
+export type HospitalSignupInput = Omit<HospitalProfile, "id" | "verificationStatus" | "role" | "createdAt" | "verifiedAt" | "lastLoginAt"> & { password: string };

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createRecord, deleteRecord, listRecords } from "@/lib/db";
+import { requireVerifiedHospital, validRequestOrigin } from "@/lib/auth";
 import type { ApiErrorResponse, PortalMode, RecordInput } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -20,11 +21,13 @@ function normalizeMode(value: unknown): PortalMode | null {
 
 export async function GET(request: Request) {
   try {
+    const auth = await requireVerifiedHospital();
+    if (!auth.hospital) return NextResponse.json({ error: auth.error }, { status: auth.status });
     const mode = normalizeMode(new URL(request.url).searchParams.get("mode"));
     if (!mode) {
       return NextResponse.json({ error: "A valid portal mode is required." } satisfies ApiErrorResponse, { status: 400 });
     }
-    return NextResponse.json({ records: await listRecords(mode) });
+    return NextResponse.json({ records: await listRecords(mode, auth.hospital.id) });
   } catch (error) {
     console.error("Unable to load records", error);
     return NextResponse.json({ error: "The database is temporarily unavailable." } satisfies ApiErrorResponse, { status: 500 });
@@ -32,7 +35,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!validRequestOrigin(request)) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
   try {
+    const auth = await requireVerifiedHospital();
+    if (!auth.hospital) return NextResponse.json({ error: auth.error }, { status: auth.status });
     const body = await request.json().catch(() => null);
     if (!isRecordBody(body)) {
       return NextResponse.json({ error: "Please send a valid registration payload." } satisfies ApiErrorResponse, { status: 400 });
@@ -85,7 +91,7 @@ export async function POST(request: Request) {
       organ: mode === "organ" ? organ : null,
       donorType: mode === "organ" && role === "donor" ? readString(body.donorType) ?? "Living" : null,
       urgency: mode === "organ" && role === "patient" ? Math.min(10, Math.max(1, Number(body.urgency) || 5)) : null,
-    } satisfies RecordInput);
+    } satisfies RecordInput, auth.hospital.id);
 
     return NextResponse.json({ record }, { status: 201 });
   } catch (error) {
@@ -98,12 +104,15 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  if (!validRequestOrigin(request)) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
   try {
+    const auth = await requireVerifiedHospital();
+    if (!auth.hospital) return NextResponse.json({ error: auth.error }, { status: auth.status });
     const id = new URL(request.url).searchParams.get("id");
     if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {
       return NextResponse.json({ error: "A valid record ID is required." } satisfies ApiErrorResponse, { status: 400 });
     }
-    await deleteRecord(id);
+    await deleteRecord(id, auth.hospital.id);
     return NextResponse.json({ deleted: true });
   } catch (error) {
     console.error("Unable to delete record", error);
