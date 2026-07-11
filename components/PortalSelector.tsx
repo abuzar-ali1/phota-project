@@ -21,7 +21,26 @@ export function PortalSelector({ onSelect }: { onSelect: (mode: PortalMode) => v
             <Activity className="size-4 text-emerald-300" /> PHOTA Command Network
           </div>
           <h1 className="text-balance text-4xl font-semibold tracking-[-.04em] text-white sm:text-6xl">
-            <span className="text-gradient">PHOTA</span>
+            <svg className="mx-auto h-16 w-full max-w-[34rem] sm:h-24" viewBox="0 0 800 160" preserveAspectRatio="xMidYMid meet" role="img" aria-label="PHOTA logo">
+              <defs>
+                <linearGradient id="photaGrad" x1="0" x2="1">
+                  <stop offset="0%" stopColor="#FF5A7A">
+                    <animate attributeName="offset" values="0;0.6;0" dur="6s" repeatCount="indefinite" />
+                  </stop>
+                  <stop offset="50%" stopColor="#7C4DFF">
+                    <animate attributeName="offset" values="0.2;1;0.2" dur="6s" repeatCount="indefinite" />
+                  </stop>
+                  <stop offset="100%" stopColor="#00E3B7">
+                    <animate attributeName="offset" values="0.4;1;0.4" dur="6s" repeatCount="indefinite" />
+                  </stop>
+                </linearGradient>
+                <filter id="photaShadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="6" stdDeviation="12" floodColor="#000" floodOpacity="0.45" />
+                </filter>
+              </defs>
+              <text x="50%" y="54%" textAnchor="middle" dominantBaseline="middle" fontFamily="Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue'" fontWeight="700" fontSize="88" fill="url(#photaGrad)" filter="url(#photaShadow)">PHOTA</text>
+              <text x="50%" y="92%" textAnchor="middle" dominantBaseline="middle" fontFamily="Inter, ui-sans-serif, system-ui" fontSize="16" fill="#94A3B8">Punjab Health Organ & Transfusion Assistant</text>
+            </svg>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-7 text-slate-400 sm:text-lg">
             Punjab&apos;s unified medical matching workspace for organ allocation and urgent blood dispatch.
