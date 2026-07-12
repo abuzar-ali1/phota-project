@@ -6,7 +6,7 @@ import { Activity, ArrowRight, BadgeCheck, BookOpen, Building2, Dna, Droplets, G
 import type { HospitalProfile, PortalMode } from "@/lib/types";
 
 const teamMembers = [
-  { name: "Abuzar Ali", image: "/abuzar-ali.jpeg" },
+  { name: "Abuzar Ali", image: "/abuzar-ali.png" },
   { name: "Muhammad Naeem", image: "/naeem.jpeg" },
   { name: "Javeria Khursheed", image: "/javeria.jpg" },
   { name: "Noor Fatima", image: "/noor.jpg" },
