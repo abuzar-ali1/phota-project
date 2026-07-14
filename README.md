@@ -17,7 +17,7 @@ Potential matches are coordination aids only. Final donor and recipient eligibil
 
 ## Local setup
 
-Copy `.env.example` to `.env` and configure:
+Configure the project directly in the local `.env` file:
 
 ```dotenv
 DATABASE_URL=postgresql://...
