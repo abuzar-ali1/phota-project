@@ -2,13 +2,14 @@ import "server-only";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import { getHospitalById } from "./db";
+import { emailVerificationIsCurrent } from "./verification";
 import type { HospitalProfile } from "./types";
 
 export const SESSION_COOKIE = "phota_session";
 const SESSION_SECONDS = 60 * 60 * 8;
 
 function secret() {
-  const value = process.env.JWT_SECRET || process.env.DATABASE_URL;
+  const value = process.env.JWT_SECRET;
   if (!value || value.length < 32) throw new Error("JWT_SECRET must contain at least 32 characters.");
   return new TextEncoder().encode(value);
 }
@@ -43,6 +44,7 @@ export async function getCurrentHospital(): Promise<HospitalProfile | null> {
 export async function requireVerifiedHospital() {
   const hospital = await getCurrentHospital();
   if (!hospital) return { error: "Authentication required.", status: 401 as const, hospital: null };
+  if (!emailVerificationIsCurrent(hospital.emailVerifiedAt)) return { error: "Email re-verification is required.", status: 428 as const, hospital: null };
   if (hospital.role !== "admin" && hospital.verificationStatus !== "verified") return { error: "Hospital verification is required.", status: 403 as const, hospital: null };
   return { error: null, status: 200 as const, hospital };
 }
@@ -50,8 +52,15 @@ export async function requireVerifiedHospital() {
 export async function requireAdmin() {
   const hospital = await getCurrentHospital();
   if (!hospital) return { error: "Authentication required.", status: 401 as const, hospital: null };
+  if (!emailVerificationIsCurrent(hospital.emailVerifiedAt)) return { error: "Email re-verification is required.", status: 428 as const, hospital: null };
   if (hospital.role !== "admin") return { error: "Administrator access required.", status: 403 as const, hospital: null };
   return { error: null, status: 200 as const, hospital };
+}
+
+export function hospitalDestination(hospital: HospitalProfile) {
+  if (!emailVerificationIsCurrent(hospital.emailVerifiedAt)) return "/verify-email";
+  if (hospital.role === "admin") return "/admin/hospitals";
+  return hospital.verificationStatus === "verified" ? "/workspace" : "/pending";
 }
 
 export function validRequestOrigin(request: Request) {

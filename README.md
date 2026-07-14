@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PHOTA — Hospital and Public Donation Portal
 
-## Getting Started
+PHOTA is a responsive Next.js application for verified hospitals and individual patients/donors. It combines hospital-managed medical records with a protected public portal for nearby blood and organ availability.
 
-First, run the development server:
+## Main capabilities
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Separate hospital/admin and public-user authentication with HTTP-only JWT sessions.
+- Mandatory one-time email codes for hospitals and public users, renewed every seven days.
+- Hospital approval/rejection/deletion and blocked-public-account review by administrators.
+- Blood and organ searches with medical compatibility checks and nearest-first geolocation ranking.
+- Privacy-preserving public results: approximate distance bands are shown instead of donor addresses or stable donor identifiers.
+- Protected requester/donor match rooms with rate limits and automated message moderation.
+- A transactional three-month cooldown after a completed blood donation. Active listings and conversations for that donor are closed atomically.
+- Search-abuse detection that automatically blocks suspicious accounts until an administrator reviews them.
+
+Potential matches are coordination aids only. Final donor and recipient eligibility must be confirmed by qualified clinicians and a verified hospital.
+
+## Local setup
+
+Copy `.env.example` to `.env` and configure:
+
+```dotenv
+DATABASE_URL=postgresql://...
+JWT_SECRET=use-a-long-random-secret
+OTP_PEPPER=use-a-different-long-random-secret
+RATE_LIMIT_PEPPER=use-another-long-random-secret
+RESEND_API_KEY=re_...
+EMAIL_FROM=PHOTA <verification@your-verified-domain.example>
+OPENAI_API_KEY=sk-...
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`RESEND_API_KEY` and `EMAIL_FROM` are required to deliver verification codes. `OPENAI_API_KEY` is required for public match chat; messages fail closed when the AI safety moderator is unavailable.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Generate each signing/pepper value independently (for example, `openssl rand -base64 48`). Never reuse a sample value or commit the populated `.env` file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Install and run:
 
-## Learn More
+```bash
+npm install
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Production validation:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run lint
+npm run build
+npm start
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Architecture
 
-## Deploy on Vercel
+- `app/public/` — public portal pages, dashboard, profile, verification, and match rooms.
+- `app/api/public/` — public authentication, listings, search, matches, chat, and donation completion.
+- `app/api/verification/` — shared hospital/public email verification endpoints.
+- `app/admin/hospitals/` — hospital approval and public anti-spam review console.
+- `lib/public-auth.ts` and `lib/auth.ts` — isolated public and hospital JWT/session boundaries.
+- `lib/public-db.ts` and `lib/db.ts` — Neon persistence, schema initialization, transactional matching, and cooldown enforcement.
+- `lib/verification.ts` and `lib/email.ts` — hashed, expiring OTP workflow and email delivery.
+- `lib/geo.ts`, `lib/matching.ts`, and `lib/medical-rules.ts` — location ranking and medical eligibility rules.
+- `lib/moderation.ts`, `lib/abuse.ts`, and `lib/security.ts` — communication moderation, throttling, account blocking, and request protections.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The server initializes additive PostgreSQL tables and indexes on first database access. Public signup can never provision an administrator; administrator accounts must be created through a trusted server-side/database process.

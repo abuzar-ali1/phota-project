@@ -11,6 +11,7 @@ export function PhotaApp({hospital}:{hospital?:HospitalProfile}) {
   const [mode, setMode] = useState<PortalMode | null>(null);
   function selectPortal(selected: PortalMode) {
     if (!hospital) return router.push(`/login?portal=${selected}`);
+    if (!hospital.emailVerifiedAt || Date.now()-new Date(hospital.emailVerifiedAt).getTime()>=7*24*60*60*1000) return router.push("/verify-email");
     if (hospital.role === "admin") return router.push("/admin/hospitals");
     if (hospital.verificationStatus !== "verified") return router.push("/pending");
     setMode(selected);

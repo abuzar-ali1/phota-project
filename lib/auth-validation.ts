@@ -1,4 +1,4 @@
-import type { HospitalSignupInput } from "./types";
+import type { HospitalSignupInput, PublicUserSignupInput } from "./types";
 
 export function normalizeEmail(value: unknown) { return String(value || "").trim().toLowerCase(); }
 export function validEmail(value: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 254; }
@@ -15,3 +15,8 @@ export function parseSignup(body: Record<string, unknown>): HospitalSignupInput 
   return input;
 }
 
+export function parsePublicSignup(body: Record<string, unknown>): PublicUserSignupInput | null {
+  const input={name:clean(body.name,120),age:Number(body.age),phone:clean(body.phone,11),email:normalizeEmail(body.email),password:String(body.password||"")};
+  if(input.name.length<2||!Number.isInteger(input.age)||input.age<1||input.age>120||!/^\d{11}$/.test(input.phone)||!validEmail(input.email)||!validPassword(input.password))return null;
+  return input;
+}

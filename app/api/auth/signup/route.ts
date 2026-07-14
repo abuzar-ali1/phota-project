@@ -1,8 +1,11 @@
 import { hash } from "bcryptjs";
 import { NextResponse } from "next/server";
-import { createHospital } from "@/lib/db";
+import { createHospital, getHospitalByEmail } from "@/lib/db";
 import { parseSignup } from "@/lib/auth-validation";
-import { validRequestOrigin } from "@/lib/auth";
+import { createSessionToken, SESSION_COOKIE, sessionCookieOptions, validRequestOrigin } from "@/lib/auth";
+import { issueEmailVerification } from "@/lib/verification";
+import { requestIpHash, securityFingerprint } from "@/lib/security";
+import { reserveSecurityRequest } from "@/lib/abuse";
 
 export const runtime = "nodejs";
 
@@ -11,10 +14,15 @@ export async function POST(request: Request) {
   try {
     const input = parseSignup(await request.json());
     if (!input) return NextResponse.json({ error: "Please provide valid hospital details and a strong password." }, { status: 400 });
-    const admins = (process.env.ADMIN_EMAILS || "").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean);
-    const role = admins.includes(input.officialEmail) ? "admin" : "hospital";
+    const ipHash=requestIpHash(request);
+    if(!await reserveSecurityRequest("signup","hospital",securityFingerprint(input.officialEmail),ipHash))return NextResponse.json({error:"Too many registration attempts. Try again later."},{status:429});
+    // Administrator identities are never provisioned through this public endpoint.
+    const role = "hospital" as const;
     const hospital = await createHospital(input, await hash(input.password, 12), role);
-    return NextResponse.json({ hospital, message: role === "admin" ? "Administrator account created." : "Application submitted for verification." }, { status: 201 });
+    const authHospital=await getHospitalByEmail(input.officialEmail); if(!authHospital)throw new Error("Hospital account could not be loaded.");
+    let emailWarning:string|null=null;try{await issueEmailVerification("hospital",hospital.id,hospital.officialEmail,hospital.adminName,ipHash);}catch(error){emailWarning=error instanceof Error?error.message:"Verification email delivery is temporarily unavailable.";}
+    const response=NextResponse.json({hospital,message:"Hospital application created. Verify the official email to continue.",redirectTo:"/verify-email",emailWarning},{status:201});
+    response.cookies.set(SESSION_COOKIE,await createSessionToken(authHospital,authHospital.tokenVersion),sessionCookieOptions);return response;
   } catch (error) {
     const code = (error as { code?: string }).code;
     const detail = String((error as { detail?: string }).detail || "");
@@ -23,4 +31,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "The hospital application could not be submitted." }, { status: 500 });
   }
 }
-

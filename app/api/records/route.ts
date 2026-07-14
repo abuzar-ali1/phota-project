@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { createRecord, deleteRecord, listRecords } from "@/lib/db";
+import { createRecord, deleteRecord, listNetworkOrganDonors, listRecords } from "@/lib/db";
 import { requireVerifiedHospital, validRequestOrigin } from "@/lib/auth";
-import type { ApiErrorResponse, PortalMode, RecordInput } from "@/lib/types";
+import { getOrganRule, validateAge, validateBloodQuantity } from "@/lib/medical-rules";
+import { isOrganBloodCompatible } from "@/lib/matching";
+import type { ApiErrorResponse, NetworkDonorResult, PortalMode, RecordInput } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -23,9 +25,26 @@ export async function GET(request: Request) {
   try {
     const auth = await requireVerifiedHospital();
     if (!auth.hospital) return NextResponse.json({ error: auth.error }, { status: auth.status });
-    const mode = normalizeMode(new URL(request.url).searchParams.get("mode"));
+    const url = new URL(request.url);
+    const mode = normalizeMode(url.searchParams.get("mode"));
     if (!mode) {
       return NextResponse.json({ error: "A valid portal mode is required." } satisfies ApiErrorResponse, { status: 400 });
+    }
+    if (url.searchParams.get("scope") === "network-donors") {
+      const organ = readString(url.searchParams.get("organ"));
+      const recipientBloodGroup = readString(url.searchParams.get("bloodGroup"));
+      if (mode !== "organ" || !organ || !getOrganRule(organ)) {
+        return NextResponse.json({ error: "Select a supported organ to search." } satisfies ApiErrorResponse, { status: 400 });
+      }
+      if (!recipientBloodGroup || !bloodGroups.has(recipientBloodGroup)) {
+        return NextResponse.json({ error: "Select a valid recipient blood group." } satisfies ApiErrorResponse, { status: 400 });
+      }
+      const donors = (await listNetworkOrganDonors(organ))
+        .filter((donor) => isOrganBloodCompatible(donor.bloodGroup, recipientBloodGroup, organ))
+        .map(({ id, name, phone, age, bloodGroup, hospital, organ: donorOrgan, donorType, createdAt }) => ({
+          id, name, phone, age, bloodGroup, hospital, organ: donorOrgan, donorType, createdAt,
+        } satisfies NetworkDonorResult));
+      return NextResponse.json({ donors });
     }
     return NextResponse.json({ records: await listRecords(mode, auth.hospital.id) });
   } catch (error) {
@@ -64,19 +83,29 @@ export async function POST(request: Request) {
     if (!/^\d{13}$/.test(cnic)) {
       return NextResponse.json({ error: "CNIC must contain exactly 13 digits." } satisfies ApiErrorResponse, { status: 400 });
     }
+    if (!/^\d{11}$/.test(phone)) {
+      return NextResponse.json({ error: "Phone number must contain exactly 11 digits." } satisfies ApiErrorResponse, { status: 400 });
+    }
     if (!bloodGroups.has(bloodGroup)) {
       return NextResponse.json({ error: "Invalid blood group." } satisfies ApiErrorResponse, { status: 400 });
     }
 
     const ageValue = body.age;
     const age = typeof ageValue === "number" ? ageValue : Number(ageValue);
-    if (!Number.isInteger(age) || age < 1 || age > 120) {
-      return NextResponse.json({ error: "Enter a valid age between 1 and 120." } satisfies ApiErrorResponse, { status: 400 });
+    const organ = mode === "organ" ? readString(body.organ) : null;
+    if (mode === "organ" && (!organ || !getOrganRule(organ))) {
+      return NextResponse.json({ error: "Please select a supported organ." } satisfies ApiErrorResponse, { status: 400 });
+    }
+    const ageError = validateAge(mode, role, organ, age);
+    if (ageError) {
+      return NextResponse.json({ error: ageError } satisfies ApiErrorResponse, { status: 400 });
     }
 
-    const organ = mode === "organ" ? readString(body.organ) : null;
-    if (mode === "organ" && !organ) {
-      return NextResponse.json({ error: "Please select an organ." } satisfies ApiErrorResponse, { status: 400 });
+    const quantityValue = body.quantity;
+    const quantity = mode === "blood" ? (typeof quantityValue === "number" ? quantityValue : Number(quantityValue)) : null;
+    if (mode === "blood") {
+      const quantityError = validateBloodQuantity(quantity!);
+      if (quantityError) return NextResponse.json({ error: quantityError } satisfies ApiErrorResponse, { status: 400 });
     }
 
     const record = await createRecord({
@@ -91,6 +120,7 @@ export async function POST(request: Request) {
       organ: mode === "organ" ? organ : null,
       donorType: mode === "organ" && role === "donor" ? readString(body.donorType) ?? "Living" : null,
       urgency: mode === "organ" && role === "patient" ? Math.min(10, Math.max(1, Number(body.urgency) || 5)) : null,
+      quantity,
     } satisfies RecordInput, auth.hospital.id);
 
     return NextResponse.json({ record }, { status: 201 });

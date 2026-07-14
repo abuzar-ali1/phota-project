@@ -14,6 +14,7 @@ export type MedicalRecord = {
   organ: string | null;
   donorType: string | null;
   urgency: number | null;
+  quantity: number | null;
   createdAt: string;
 };
 
@@ -37,6 +38,13 @@ export type ApiErrorResponse = {
   error: string;
 };
 
+export type NetworkDonorResult = Pick<MedicalRecord, "id" | "name" | "phone" | "age" | "bloodGroup" | "hospital" | "organ" | "donorType" | "createdAt">;
+
+export type NetworkDonorsResponse = {
+  donors: NetworkDonorResult[];
+  error?: string;
+};
+
 export type VerificationStatus = "pending" | "verified" | "rejected";
 export type HospitalRole = "hospital" | "admin";
 
@@ -57,6 +65,87 @@ export type HospitalProfile = {
   createdAt: string;
   verifiedAt: string | null;
   lastLoginAt: string | null;
+  emailVerifiedAt: string | null;
+  latitude: number | null;
+  longitude: number | null;
 };
 
-export type HospitalSignupInput = Omit<HospitalProfile, "id" | "verificationStatus" | "role" | "createdAt" | "verifiedAt" | "lastLoginAt"> & { password: string };
+export type HospitalSignupInput = Omit<HospitalProfile, "id" | "verificationStatus" | "role" | "createdAt" | "verifiedAt" | "lastLoginAt" | "emailVerifiedAt" | "latitude" | "longitude"> & { password: string };
+
+export type PublicUserStatus = "active" | "blocked";
+
+export type PublicUserProfile = {
+  id: string;
+  name: string;
+  age: number;
+  phone: string;
+  email: string;
+  area: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  emailVerifiedAt: string | null;
+  lastBloodDonationAt: string | null;
+  cooldownUntil: string | null;
+  status: PublicUserStatus;
+  blockedReason: string | null;
+  blockedAt: string | null;
+  createdAt: string;
+  lastLoginAt: string | null;
+};
+
+export type PublicUserSignupInput = Pick<PublicUserProfile, "name" | "age" | "phone" | "email"> & { password: string };
+
+export type PublicDonorListing = {
+  id: string;
+  mode: PortalMode;
+  bloodGroup: string;
+  organ: string | null;
+  quantity: number | null;
+  area: string;
+  latitude: number;
+  longitude: number;
+  active: boolean;
+  createdAt: string;
+};
+
+export type PublicSearchResult = {
+  sourceType: "public" | "hospital";
+  sourceId: string;
+  label: string;
+  hospitalName: string | null;
+  mode: PortalMode;
+  bloodGroup: string;
+  organ: string | null;
+  quantity: number | null;
+  area: string;
+  distanceKm: number;
+};
+
+export type PublicMatch = {
+  id: string;
+  requesterId: string;
+  donorUserId: string | null;
+  medicalRecordId: string | null;
+  mode: PortalMode;
+  bloodGroup: string;
+  organ: string | null;
+  quantity: number | null;
+  distanceKm: number;
+  status: "active" | "closed" | "cancelled";
+  counterpartName: string;
+  hospitalName: string | null;
+  hospitalPhone: string | null;
+  currentUserRole: "requester" | "donor";
+  donorCooldownUntil: string | null;
+  createdAt: string;
+};
+
+export type MatchMessage = {
+  id: string;
+  senderUserId: string;
+  senderName: string;
+  content: string;
+  moderationStatus: "allowed" | "blocked";
+  moderationReason: string | null;
+  createdAt: string;
+};

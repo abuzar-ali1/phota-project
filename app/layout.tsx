@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
   title: "PHOTA | Medical Matching & Route Control",
-  description: "Punjab's unified organ transplant and blood dispatch matching workspace.",
+  description: "Punjab's secure hospital and public portal for organ coordination, blood availability, location-aware matching, and moderated contact.",
   openGraph: {
     title: "PHOTA | Medical Matching & Route Control",
     description: "PHOTA",

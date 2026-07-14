@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Activity, ArrowRight, BadgeCheck, BookOpen, Building2, Dna, Droplets, GraduationCap, ShieldCheck, UserRound } from "lucide-react";
+import { Activity, ArrowRight, BadgeCheck, BookOpen, Building2, Dna, Droplets, GraduationCap, HeartHandshake, MapPin, Search, ShieldCheck, UserRound } from "lucide-react";
 import type { HospitalProfile, PortalMode } from "@/lib/types";
 
 const teamMembers = [
@@ -17,7 +17,8 @@ export function PortalSelector({ onSelect, hospital }: { onSelect: (mode: Portal
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-12">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,57,80,.14),transparent_34%),radial-gradient(circle_at_80%_75%,rgba(36,232,178,.13),transparent_35%)]" />
       <div className="relative w-full max-w-5xl animate-[fade-up_.7s_ease-out]">
-        <div className="mb-6 flex justify-end gap-2">
+        <div className="mb-6 flex flex-wrap justify-end gap-2">
+          <Link href="/public" className="secondary-btn border-rose-300/15 text-rose-200"><HeartHandshake/> Public portal</Link>
           {hospital ? (
             <Link href="/profile" className="group flex items-center gap-3 rounded-xl border border-emerald-300/20 bg-[#071014]/85 px-3 py-2 shadow-lg backdrop-blur-xl transition hover:border-emerald-200/35 hover:bg-emerald-300/[.08]">
               <span className="grid size-9 place-items-center rounded-lg bg-emerald-300/10 text-emerald-300"><UserRound className="size-4" /></span>
@@ -57,6 +58,11 @@ export function PortalSelector({ onSelect, hospital }: { onSelect: (mode: Portal
           </p>
         </div>
 
+        <Link href="/public" className="group relative mb-4 block overflow-hidden rounded-[28px] border border-rose-300/15 bg-[#081318]/90 p-7 shadow-[0_24px_80px_rgba(0,0,0,.28)] transition duration-300 hover:-translate-y-1 hover:border-rose-200/30 sm:p-9">
+          <div className="absolute inset-0 bg-[linear-gradient(110deg,rgba(7,16,20,.97),rgba(17,9,14,.82)),url('/whole-bg.png')] bg-cover bg-center transition duration-700 group-hover:scale-105"/>
+          <div className="relative flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between"><div className="flex items-start gap-4"><span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-rose-400/15 text-rose-200 ring-1 ring-rose-200/20"><HeartHandshake className="size-7"/></span><div><p className="text-xs font-bold uppercase tracking-[.2em] text-rose-300">For individual patients and donors</p><h2 className="mt-2 text-3xl font-semibold text-white">Public Patient & Donor Portal</h2><p className="mt-3 max-w-2xl leading-7 text-slate-300">Search nearby blood or organ availability, volunteer safely, and connect through protected, moderated communication.</p></div></div><div className="flex shrink-0 flex-wrap gap-2 text-xs text-slate-300"><span className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2"><Search className="size-3.5 text-rose-300"/> Medical search</span><span className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2"><MapPin className="size-3.5 text-cyan-300"/> Nearest matches</span><span className="grid size-10 place-items-center rounded-full bg-white/5 text-slate-400 transition group-hover:translate-x-1 group-hover:text-rose-200"><ArrowRight className="size-5"/></span></div></div>
+        </Link>
+
         <div className="grid gap-4 md:grid-cols-2">
           <button onClick={() => onSelect("blood")} className="portal-card group text-left">
             <div className="portal-card-image bg-[url('/blood.jpg')]" />
@@ -67,7 +73,7 @@ export function PortalSelector({ onSelect, hospital }: { onSelect: (mode: Portal
                 <ArrowRight className="size-5 text-slate-500 transition group-hover:translate-x-1 group-hover:text-rose-300" />
               </div>
               <p className="mb-2 text-xs font-bold uppercase tracking-[.2em] text-rose-300">Emergency logistics</p>
-              <h2 className="text-3xl font-semibold text-white">Blood Bank Portal</h2>
+              <h2 className="text-3xl font-semibold text-white">Hospital Blood Bank Portal</h2>
               <p className="mt-3 max-w-md leading-7 text-slate-300">Register blood donors, prioritize requests, and dispatch compatible supply between hospitals.</p>
             </div>
           </button>
@@ -81,7 +87,7 @@ export function PortalSelector({ onSelect, hospital }: { onSelect: (mode: Portal
                 <ArrowRight className="size-5 text-slate-500 transition group-hover:translate-x-1 group-hover:text-emerald-300" />
               </div>
               <p className="mb-2 text-xs font-bold uppercase tracking-[.2em] text-emerald-200">Transplant coordination</p>
-              <h2 className="text-3xl font-semibold text-white">Organ Match Portal</h2>
+              <h2 className="text-3xl font-semibold text-white">Hospital Organ Match Portal</h2>
               <p className="mt-3 max-w-md leading-7 text-slate-300">Coordinate donor records, recipient urgency, biological matching, and hospital routing.</p>
             </div>
           </button>

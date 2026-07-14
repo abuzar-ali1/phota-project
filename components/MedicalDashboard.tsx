@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { Activity, ArrowLeftRight, BadgeCheck, CircleCheck, Database, ExternalLink, HeartPulse, LoaderCircle, MapPin, Menu, Route, ShieldCheck, Sparkles, UserRound, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { readApiResponse } from "@/lib/client-api";
 import { findBestMatch } from "@/lib/matching";
 import type { ApiRecordsResponse, HospitalProfile, MedicalRecord, PortalMode } from "@/lib/types";
 import { RecordTable } from "./RecordTable";
 import { RegistrationForm } from "./RegistrationForm";
+import { OrganDonorSearch } from "./OrganDonorSearch";
 import { ToastViewport, type ToastItem } from "./ToastViewport";
 import { LogoutButton } from "./LogoutButton";
 
@@ -35,8 +37,7 @@ export function MedicalDashboard({ mode, onSwitch, hospital }: { mode: PortalMod
     setError("");
     try {
       const response = await fetch(`/api/records?mode=${mode}`, { cache: "no-store" });
-      const result = (await response.json()) as ApiRecordsResponse;
-      if (!response.ok) throw new Error(result.error ?? "Unable to load records.");
+      const result = await readApiResponse<ApiRecordsResponse>(response, "hospital");
       setRecords(result.records);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to load records.");
@@ -68,8 +69,7 @@ export function MedicalDashboard({ mode, onSwitch, hospital }: { mode: PortalMod
   async function removeRecord(record: MedicalRecord) {
     try {
       const response = await fetch(`/api/records?id=${encodeURIComponent(record.id)}`, { method: "DELETE" });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      await readApiResponse<{ deleted: boolean }>(response, "hospital");
       setRecords((current) => current.filter((item) => item.id !== record.id));
       if (match?.donor.id === record.id || match?.patient.id === record.id) setMatch(null);
       notify("success", "Record removed", `${record.name} was deleted from the database.`);
@@ -154,7 +154,7 @@ export function MedicalDashboard({ mode, onSwitch, hospital }: { mode: PortalMod
 
               <section className="panel p-5">
                 <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
-                  <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft"><Sparkles className="size-5 text-primary" /></span><div><h3 className="font-semibold text-white">Smart compatibility engine</h3><p className="mt-1 text-sm text-slate-400">Prioritizes urgency, organ type, and medically compatible blood groups.</p></div></div>
+                  <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft"><Sparkles className="size-5 text-primary" /></span><div><h3 className="font-semibold text-white">Smart compatibility engine</h3><p className="mt-1 text-sm text-slate-400">{mode === "blood" ? "Matches compatible blood groups only when the donor has enough available units." : "Prioritizes urgency, organ type, and medically compatible blood groups."}</p></div></div>
                   <button onClick={runMatch} disabled={matching || donors === 0 || patients === 0} className="primary-btn">{matching ? <LoaderCircle className="size-4 animate-spin" /> : <Route className="size-4" />}{matching ? "Scanning…" : "Run matching engine"}</button>
                 </div>
                 {match && <div className="mt-5 grid gap-3 rounded-xl border border-emerald-300/15 bg-emerald-300/[.06] p-4 sm:grid-cols-[1fr_auto_1fr] sm:items-center"><MatchPerson label="Donor facility" record={match.donor} /><div className="hidden items-center gap-2 text-xs font-bold text-emerald-300 sm:flex"><CircleCheck className="size-5" /> MATCH</div><MatchPerson label="Recipient facility" record={match.patient} align="right" /></div>}
@@ -163,7 +163,7 @@ export function MedicalDashboard({ mode, onSwitch, hospital }: { mode: PortalMod
             </div>
           </div>
         ) : (
-          <div className="space-y-5"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-primary-soft"><Database className="size-5 text-primary" /></span><div><p className="eyebrow">Neon database</p><h2 className="text-xl font-semibold text-white">Live medical registry</h2></div></div><RecordTable records={records} role="donor" mode={mode} onDelete={removeRecord} /><RecordTable records={records} role="patient" mode={mode} onDelete={removeRecord} /></div>
+          <div className="space-y-5"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-primary-soft"><Database className="size-5 text-primary" /></span><div><p className="eyebrow">Neon database</p><h2 className="text-xl font-semibold text-white">Live medical registry</h2></div></div>{mode === "organ" && <OrganDonorSearch patients={records.filter((record) => record.role === "patient")} onNotify={notify} />}<RecordTable records={records} role="donor" mode={mode} onDelete={removeRecord} /><RecordTable records={records} role="patient" mode={mode} onDelete={removeRecord} /></div>
         )}
       </div>
     </main>
@@ -171,4 +171,4 @@ export function MedicalDashboard({ mode, onSwitch, hospital }: { mode: PortalMod
 }
 
 function Stat({ value, label, color }: { value: number; label: string; color: "cyan" | "rose" }) { return <div className="min-w-32 rounded-2xl border border-white/8 bg-white/[.035] p-4"><strong className={`text-2xl ${color === "cyan" ? "text-cyan-300" : "text-rose-300"}`}>{value.toString().padStart(2, "0")}</strong><span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span></div>; }
-function MatchPerson({ label, record, align = "left" }: { label: string; record: MedicalRecord; align?: "left" | "right" }) { return <div className={align === "right" ? "sm:text-right" : ""}><span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span><strong className="mt-1 block text-sm text-white">{record.hospital}</strong><span className="text-xs text-slate-400">{record.name} · {record.bloodGroup}</span></div>; }
+function MatchPerson({ label, record, align = "left" }: { label: string; record: MedicalRecord; align?: "left" | "right" }) { return <div className={align === "right" ? "sm:text-right" : ""}><span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span><strong className="mt-1 block text-sm text-white">{record.hospital}</strong><span className="text-xs text-slate-400">{record.name} · {record.bloodGroup}{record.mode === "blood" ? ` · ${record.quantity} ${record.quantity === 1 ? "unit" : "units"}` : ""}</span></div>; }
