@@ -46,7 +46,8 @@ export async function POST(request:Request){
     if(security.throttled)return NextResponse.json({error:"This network is sending too many searches. Wait a few minutes and try again."},{status:429});
     await updatePublicLocation(auth.user.id,area,latitude,longitude);
     const origin={latitude,longitude};
-    const candidates=(await loadSearchCandidates(mode,organ,organRule?.donor.max??120))
+    const maxDonorAge=mode==="blood"?60:organRule!.donor.max;
+    const candidates=(await loadSearchCandidates(mode,organ,maxDonorAge))
       .filter((candidate)=>candidate.donorUserId!==auth.user!.id)
       .filter((candidate)=>mode==="blood"?isBloodCompatible(candidate.bloodGroup,bloodGroup):isOrganBloodCompatible(candidate.bloodGroup,bloodGroup,organ))
       .filter((candidate)=>mode==="organ"||((candidate.quantity??0)>=(quantity??1)))
@@ -62,7 +63,7 @@ export async function POST(request:Request){
     if(candidates[0]){
       const nearest=candidates[0];
       const protectedDistance=nearest.candidate.sourceType==="public"?Math.max(5,Math.ceil(nearest.distance/5)*5):Number(nearest.distance.toFixed(1));
-      matchId=await createOrGetMatch(auth.user.id,nearest.candidate,bloodGroup,organ,quantity,protectedDistance,organRule?.donor.max??120);
+      matchId=await createOrGetMatch(auth.user.id,nearest.candidate,bloodGroup,organ,quantity,protectedDistance,maxDonorAge);
     }
     return NextResponse.json({results,matchId,location:{area,latitude,longitude}});
   }catch(error){

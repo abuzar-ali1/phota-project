@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { HospitalProfile, PortalMode } from "@/lib/types";
 import { MedicalDashboard } from "./MedicalDashboard";
-import { PortalSelector } from "./PortalSelector";
+import { HospitalWorkspaceSelector } from "./HospitalWorkspaceSelector";
 
 export function PhotaApp({hospital}:{hospital?:HospitalProfile}) {
   const router=useRouter();
@@ -16,5 +16,5 @@ export function PhotaApp({hospital}:{hospital?:HospitalProfile}) {
     if (hospital.verificationStatus !== "verified") return router.push("/pending");
     setMode(selected);
   }
-  return mode && hospital ? <MedicalDashboard mode={mode} onSwitch={() => setMode(null)} hospital={hospital} /> : <PortalSelector onSelect={selectPortal} hospital={hospital} />;
+  return mode && hospital ? <MedicalDashboard mode={mode} onSwitch={() => setMode(null)} hospital={hospital} /> : hospital ? <HospitalWorkspaceSelector onSelect={selectPortal} hospital={hospital} /> : null;
 }

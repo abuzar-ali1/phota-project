@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Separate user-owned Next.js workspace nested under this repository.
+    "app/workspace/areeb-areel-corporation/**",
   ]),
 ]);
 

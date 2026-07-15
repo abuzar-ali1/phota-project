@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createRecord, deleteRecord, listNetworkOrganDonors, listRecords } from "@/lib/db";
+import { createRecord, deleteRecord, listNetworkBloodDonors, listNetworkOrganDonors, listRecords } from "@/lib/db";
 import { requireVerifiedHospital, validRequestOrigin } from "@/lib/auth";
 import { getOrganRule, validateAge, validateBloodQuantity } from "@/lib/medical-rules";
-import { isOrganBloodCompatible } from "@/lib/matching";
+import { isBloodCompatible, isOrganBloodCompatible } from "@/lib/matching";
 import type { ApiErrorResponse, NetworkDonorResult, PortalMode, RecordInput } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -31,18 +31,26 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "A valid portal mode is required." } satisfies ApiErrorResponse, { status: 400 });
     }
     if (url.searchParams.get("scope") === "network-donors") {
-      const organ = readString(url.searchParams.get("organ"));
       const recipientBloodGroup = readString(url.searchParams.get("bloodGroup"));
-      if (mode !== "organ" || !organ || !getOrganRule(organ)) {
-        return NextResponse.json({ error: "Select a supported organ to search." } satisfies ApiErrorResponse, { status: 400 });
-      }
       if (!recipientBloodGroup || !bloodGroups.has(recipientBloodGroup)) {
         return NextResponse.json({ error: "Select a valid recipient blood group." } satisfies ApiErrorResponse, { status: 400 });
       }
-      const donors = (await listNetworkOrganDonors(organ))
-        .filter((donor) => isOrganBloodCompatible(donor.bloodGroup, recipientBloodGroup, organ))
-        .map(({ id, name, phone, age, bloodGroup, hospital, organ: donorOrgan, donorType, createdAt }) => ({
-          id, name, phone, age, bloodGroup, hospital, organ: donorOrgan, donorType, createdAt,
+      const quantity = mode === "blood" ? Number(url.searchParams.get("quantity")) : null;
+      if (mode === "blood") {
+        const quantityError = validateBloodQuantity(quantity!);
+        if (quantityError) return NextResponse.json({ error: quantityError } satisfies ApiErrorResponse, { status: 400 });
+      }
+      const organ = mode === "organ" ? readString(url.searchParams.get("organ")) : null;
+      if (mode === "organ" && (!organ || !getOrganRule(organ))) {
+        return NextResponse.json({ error: "Select a supported organ to search." } satisfies ApiErrorResponse, { status: 400 });
+      }
+      const networkDonors = mode === "organ" ? await listNetworkOrganDonors(organ!) : await listNetworkBloodDonors();
+      const donors = networkDonors
+        .filter((donor) => mode === "organ"
+          ? isOrganBloodCompatible(donor.bloodGroup, recipientBloodGroup, organ)
+          : isBloodCompatible(donor.bloodGroup, recipientBloodGroup) && (donor.quantity ?? 0) >= quantity!)
+        .map(({ id, name, phone, age, bloodGroup, hospital, organ: donorOrgan, donorType, quantity: availableQuantity, createdAt }) => ({
+          id, name, phone, age, bloodGroup, hospital, organ: donorOrgan, donorType, quantity: availableQuantity, createdAt,
         } satisfies NetworkDonorResult));
       return NextResponse.json({ donors });
     }

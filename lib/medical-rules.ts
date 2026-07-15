@@ -19,7 +19,9 @@ export function getOrganRule(organ: string | null | undefined) {
 }
 
 export function getAgeRule(mode: PortalMode, role: PersonRole, organ?: string | null) {
-  if (mode === "blood") return { min: role === "donor" ? 18 : 1, max: 120, note: "Enter age in completed years" };
+  if (mode === "blood") return role === "donor"
+    ? { min: 18, max: 60, note: "Blood donors must be 18–60 years old" }
+    : { min: 1, max: 120, note: "Enter the recipient age in completed years" };
   const rule = getOrganRule(organ);
   if (!rule) return null;
   const range = rule[role];
@@ -30,7 +32,7 @@ export function validateAge(mode: PortalMode, role: PersonRole, organ: string | 
   const rule = getAgeRule(mode, role, organ);
   if (!rule) return "Please select a supported organ.";
   if (!Number.isInteger(age) || age < rule.min || age > rule.max) {
-    const subject = mode === "organ" ? `${organ} ${role === "donor" ? "donor" : "recipient"}` : "Patient";
+    const subject = mode === "organ" ? `${organ} ${role === "donor" ? "donor" : "recipient"}` : role === "donor" ? "Blood donor" : "Blood recipient";
     return `${subject} age must be between ${rule.min} and ${rule.max} years.`;
   }
   return null;

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { PublicDashboard } from "@/components/PublicDashboard";
+import { PublicDashboard } from "@/components/PublicDashboardEnhanced";
 import { getCurrentPublicUser } from "@/lib/public-auth";
 import { listDonorListings,listPublicMatches } from "@/lib/public-db";
 import { emailVerificationIsCurrent } from "@/lib/verification";

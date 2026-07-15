@@ -33,6 +33,7 @@ export function findBestMatch(records: MedicalRecord[]): MatchResult | null {
       (candidate) =>
         candidate.mode === patient.mode &&
         candidate.age >= 18 &&
+        (candidate.mode !== "blood" || candidate.age <= 60) &&
         (candidate.mode === "organ"
           ? isOrganBloodCompatible(candidate.bloodGroup, patient.bloodGroup, patient.organ)
           : isBloodCompatible(candidate.bloodGroup, patient.bloodGroup)) &&

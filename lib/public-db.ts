@@ -1,6 +1,6 @@
 import "server-only";
 import { database, ensureSchema, withRetry } from "./db";
-import type { MatchMessage, PortalMode, PublicDonorListing, PublicMatch, PublicSearchResult, PublicUserProfile, PublicUserSignupInput } from "./types";
+import type { PortalMode, PublicDonorListing, PublicMatch, PublicSearchResult, PublicUserProfile, PublicUserSignupInput } from "./types";
 
 type DbRow = Record<string, unknown>;
 const text = (value: unknown) => String(value ?? "");
@@ -61,7 +61,12 @@ export async function getPublicUserById(id: string) {
   return rows[0] ? mapPublicUser(rows[0]) : null;
 }
 
-export async function listBlockedPublicUsers(){await ensureSchema();const sql=database();const rows=await withRetry(()=>sql`SELECT *,last_blood_donation_at+INTERVAL '3 months' AS cooldown_until FROM public_users WHERE status='blocked' ORDER BY blocked_at DESC NULLS LAST`);return rows.map((value)=>publicProfile(mapPublicUser(value)));}
+export async function listPublicUsers(){await ensureSchema();const sql=database();const rows=await withRetry(()=>sql`SELECT *,last_blood_donation_at+INTERVAL '3 months' AS cooldown_until FROM public_users ORDER BY created_at DESC`);return rows.map((value)=>publicProfile(mapPublicUser(value)));}
+
+export async function deletePublicUser(id:string){await ensureSchema();const sql=database();const[,rows]=await sql.transaction((transaction)=>[
+  transaction`DELETE FROM email_verification_codes WHERE account_type='public' AND account_id=${id}`,
+  transaction`DELETE FROM public_users WHERE id=${id} RETURNING id`,
+]);return rows.length>0;}
 
 export async function unblockPublicUser(id:string){await ensureSchema();const sql=database();const rows=await sql`UPDATE public_users SET status='active',blocked_reason=NULL,blocked_at=NULL,failed_login_attempts=0,locked_until=NULL,token_version=token_version+1 WHERE id=${id} AND status='blocked' RETURNING *,last_blood_donation_at+INTERVAL '3 months' AS cooldown_until`;return rows[0]?publicProfile(mapPublicUser(rows[0])):null;}
 
@@ -135,7 +140,9 @@ export async function createDonorListing(userId: string, input: Omit<PublicDonor
       WHERE user_id=${userId} AND mode=${input.mode} AND EXISTS(SELECT 1 FROM eligible) RETURNING id
     ) INSERT INTO public_donor_listings (user_id,mode,blood_group,organ,quantity,area,latitude,longitude)
       SELECT eligible.id,${input.mode},${input.bloodGroup},${input.organ},${input.quantity},${input.area},${input.latitude},${input.longitude}
-      FROM eligible CROSS JOIN (SELECT COUNT(*) FROM deactivated) dependency RETURNING *`,
+      FROM eligible INNER JOIN public_users users ON users.id=eligible.id CROSS JOIN (SELECT COUNT(*) FROM deactivated) dependency
+      WHERE ${input.mode}<>'blood' OR users.age BETWEEN 18 AND 60
+      RETURNING *`,
   ]);
   if(!rows[0])throw new Error("Account is not currently eligible to publish this donor availability.");
   return mapListing(rows[0]);
@@ -239,21 +246,23 @@ export async function createOrGetMatch(requesterId: string, candidate: SearchCan
   return rows[0]?text(row(rows[0]).id):null;
 }
 
-function mapMatch(value: unknown, currentUserId: string): PublicMatch {
+function mapMatch(value: unknown, currentUserId: string, includeContact = false): PublicMatch {
   const r = row(value); const requesterId=text(r.requester_id); const donorUserId=nullableText(r.donor_user_id);
   const donorCooldownUntil=iso(r.donor_cooldown_until);
   const isRequester=requesterId===currentUserId;
+  const contactEligible=includeContact&&r.status==="active"&&(!donorCooldownUntil||new Date(donorCooldownUntil)<=new Date());
+  const counterpartPhone=contactEligible?(isRequester?(donorUserId?nullableText(r.donor_phone):nullableText(r.hospital_phone)):nullableText(r.requester_phone)):null;
   return {
     id:text(r.id),requesterId,donorUserId,medicalRecordId:nullableText(r.medical_record_id),mode:r.mode as PortalMode,
     bloodGroup:text(r.blood_group),organ:nullableText(r.organ),quantity:r.quantity==null?null:Number(r.quantity),distanceKm:Number(r.distance_km),
-    status:r.status as PublicMatch["status"],counterpartName:isRequester?(donorUserId?"Verified community donor":text(r.hospital_name)):text(r.requester_name),
+    status:r.status as PublicMatch["status"],counterpartName:isRequester?(donorUserId?text(r.donor_name):text(r.hospital_name)):text(r.requester_name),counterpartPhone,
     hospitalName:nullableText(r.hospital_name),hospitalPhone:nullableText(r.hospital_phone),currentUserRole:isRequester?"requester":"donor",donorCooldownUntil,createdAt:iso(r.created_at)!,
   };
 }
 
 export async function listPublicMatches(userId: string) {
   await ensureSchema(); const sql = database();
-  const rows = await withRetry(() => sql`SELECT matches.*,requester.name AS requester_name,donor.name AS donor_name,donor.last_blood_donation_at+INTERVAL '3 months' AS donor_cooldown_until,
+  const rows = await withRetry(() => sql`SELECT matches.*,requester.name AS requester_name,requester.phone AS requester_phone,donor.name AS donor_name,donor.phone AS donor_phone,donor.last_blood_donation_at+INTERVAL '3 months' AS donor_cooldown_until,
     hospitals.hospital_name,hospitals.phone AS hospital_phone FROM public_matches matches
     INNER JOIN public_users requester ON requester.id=matches.requester_id
     LEFT JOIN public_users donor ON donor.id=matches.donor_user_id
@@ -265,54 +274,14 @@ export async function listPublicMatches(userId: string) {
 
 export async function getPublicMatch(userId: string, matchId: string) {
   await ensureSchema(); const sql = database();
-  const rows = await withRetry(() => sql`SELECT matches.*,requester.name AS requester_name,donor.name AS donor_name,donor.last_blood_donation_at+INTERVAL '3 months' AS donor_cooldown_until,
+  const rows = await withRetry(() => sql`SELECT matches.*,requester.name AS requester_name,requester.phone AS requester_phone,donor.name AS donor_name,donor.phone AS donor_phone,donor.last_blood_donation_at+INTERVAL '3 months' AS donor_cooldown_until,
     hospitals.hospital_name,hospitals.phone AS hospital_phone FROM public_matches matches
     INNER JOIN public_users requester ON requester.id=matches.requester_id
     LEFT JOIN public_users donor ON donor.id=matches.donor_user_id
     LEFT JOIN medical_records records ON records.id=matches.medical_record_id
     LEFT JOIN hospitals ON hospitals.id=records.hospital_id
     WHERE matches.id=${matchId} AND (matches.requester_id=${userId} OR matches.donor_user_id=${userId}) LIMIT 1`);
-  return rows[0] ? mapMatch(rows[0],userId) : null;
-}
-
-export async function listMatchMessages(matchId: string) {
-  await ensureSchema(); const sql = database();
-  const rows = await withRetry(() => sql`SELECT messages.*,users.name AS sender_name FROM match_messages messages INNER JOIN public_users users ON users.id=messages.sender_user_id WHERE messages.match_id=${matchId} AND messages.moderation_status='allowed' ORDER BY messages.created_at`);
-  return rows.map((value): MatchMessage => { const r=row(value); return {id:text(r.id),senderUserId:text(r.sender_user_id),senderName:text(r.sender_name),content:text(r.content),moderationStatus:r.moderation_status as MatchMessage["moderationStatus"],moderationReason:nullableText(r.moderation_reason),createdAt:iso(r.created_at)!}; });
-}
-
-export async function reserveMatchMessageQuota(matchId:string,senderUserId:string){
-  await ensureSchema();const sql=database();
-  const[,rows]=await sql.transaction((transaction)=>[
-    transaction`SELECT pg_advisory_xact_lock(hashtextextended(${`phota:message-sender:${senderUserId}`},0::bigint))`,
-    transaction`INSERT INTO message_rate_events (user_id,match_id)
-      SELECT ${senderUserId},matches.id FROM public_matches matches
-      WHERE matches.id=${matchId} AND matches.status='active'
-        AND (matches.requester_id=${senderUserId} OR matches.donor_user_id=${senderUserId})
-        AND (SELECT COUNT(*) FROM message_rate_events recent WHERE recent.user_id=${senderUserId} AND recent.created_at>NOW()-INTERVAL '1 minute')<10
-      RETURNING id`,
-  ]);
-  return rows.length>0;
-}
-
-export async function createMatchMessageIfEligible(matchId: string, senderUserId: string, content: string, status: "allowed"|"blocked", reason: string|null) {
-  await ensureSchema(); const sql = database();
-  const[,rows]=await sql.transaction((transaction)=>[
-    transaction`SELECT pg_advisory_xact_lock(hashtextextended('phota:public-donor:'||COALESCE((SELECT donor_user_id::text FROM public_matches WHERE id=${matchId}),'missing'),0::bigint))`,
-    transaction`INSERT INTO match_messages (match_id,sender_user_id,content,moderation_status,moderation_reason)
-    SELECT matches.id,${senderUserId},${content},${status},${reason} FROM public_matches matches
-    INNER JOIN public_users sender ON sender.id=${senderUserId}
-    INNER JOIN public_users requester ON requester.id=matches.requester_id
-    INNER JOIN public_users donor ON donor.id=matches.donor_user_id
-    WHERE matches.id=${matchId} AND matches.status='active'
-      AND (matches.requester_id=${senderUserId} OR matches.donor_user_id=${senderUserId})
-      AND sender.status='active' AND sender.email_verified_at>NOW()-INTERVAL '7 days'
-      AND requester.status='active' AND requester.email_verified_at>NOW()-INTERVAL '7 days'
-      AND donor.status='active' AND donor.email_verified_at>NOW()-INTERVAL '7 days'
-      AND (donor.last_blood_donation_at IS NULL OR NOW()>=donor.last_blood_donation_at+INTERVAL '3 months')
-    RETURNING id`,
-  ]);
-  return rows.length>0;
+  return rows[0] ? mapMatch(rows[0],userId,true) : null;
 }
 
 export async function completeBloodDonation(matchId: string, donorUserId: string) {

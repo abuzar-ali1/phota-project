@@ -9,6 +9,7 @@ import type { ApiRecordsResponse, HospitalProfile, MedicalRecord, PortalMode } f
 import { RecordTable } from "./RecordTable";
 import { RegistrationForm } from "./RegistrationForm";
 import { OrganDonorSearch } from "./OrganDonorSearch";
+import { BloodDonorSearch } from "./BloodDonorSearch";
 import { ToastViewport, type ToastItem } from "./ToastViewport";
 import { LogoutButton } from "./LogoutButton";
 
@@ -163,7 +164,7 @@ export function MedicalDashboard({ mode, onSwitch, hospital }: { mode: PortalMod
             </div>
           </div>
         ) : (
-          <div className="space-y-5"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-primary-soft"><Database className="size-5 text-primary" /></span><div><p className="eyebrow">Neon database</p><h2 className="text-xl font-semibold text-white">Live medical registry</h2></div></div>{mode === "organ" && <OrganDonorSearch patients={records.filter((record) => record.role === "patient")} onNotify={notify} />}<RecordTable records={records} role="donor" mode={mode} onDelete={removeRecord} /><RecordTable records={records} role="patient" mode={mode} onDelete={removeRecord} /></div>
+          <div className="space-y-5"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-primary-soft"><Database className="size-5 text-primary" /></span><div><p className="eyebrow">Neon database</p><h2 className="text-xl font-semibold text-white">Live medical registry</h2></div></div>{mode === "organ" ? <OrganDonorSearch patients={records.filter((record) => record.role === "patient")} onNotify={notify} /> : <BloodDonorSearch patients={records.filter((record) => record.role === "patient")} onNotify={notify} />}<RecordTable records={records} role="donor" mode={mode} onDelete={removeRecord} /><RecordTable records={records} role="patient" mode={mode} onDelete={removeRecord} /></div>
         )}
       </div>
     </main>

@@ -1,7 +1,7 @@
 import { hash } from "bcryptjs";
 import { NextResponse } from "next/server";
 import { createHospital, getHospitalByEmail } from "@/lib/db";
-import { parseSignup } from "@/lib/auth-validation";
+import { normalizeHospitalLicense, parseSignup, validHospitalLicense } from "@/lib/auth-validation";
 import { createSessionToken, SESSION_COOKIE, sessionCookieOptions, validRequestOrigin } from "@/lib/auth";
 import { issueEmailVerification } from "@/lib/verification";
 import { requestIpHash, securityFingerprint } from "@/lib/security";
@@ -12,7 +12,13 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   if (!validRequestOrigin(request)) return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
   try {
-    const input = parseSignup(await request.json());
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Please provide valid hospital details." }, { status: 400 });
+    const raw = body as Record<string, unknown>;
+    if (!validHospitalLicense(normalizeHospitalLicense(raw.licenseNumber))) {
+      return NextResponse.json({ error: "License number must be 5–40 characters and may use letters, numbers, /, &, . and -." }, { status: 400 });
+    }
+    const input = parseSignup(raw);
     if (!input) return NextResponse.json({ error: "Please provide valid hospital details and a strong password." }, { status: 400 });
     const ipHash=requestIpHash(request);
     if(!await reserveSecurityRequest("signup","hospital",securityFingerprint(input.officialEmail),ipHash))return NextResponse.json({error:"Too many registration attempts. Try again later."},{status:429});

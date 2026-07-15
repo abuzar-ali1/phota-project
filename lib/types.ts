@@ -38,7 +38,7 @@ export type ApiErrorResponse = {
   error: string;
 };
 
-export type NetworkDonorResult = Pick<MedicalRecord, "id" | "name" | "phone" | "age" | "bloodGroup" | "hospital" | "organ" | "donorType" | "createdAt">;
+export type NetworkDonorResult = Pick<MedicalRecord, "id" | "name" | "phone" | "age" | "bloodGroup" | "hospital" | "organ" | "donorType" | "quantity" | "createdAt">;
 
 export type NetworkDonorsResponse = {
   donors: NetworkDonorResult[];
@@ -133,19 +133,10 @@ export type PublicMatch = {
   distanceKm: number;
   status: "active" | "closed" | "cancelled";
   counterpartName: string;
+  counterpartPhone: string | null;
   hospitalName: string | null;
   hospitalPhone: string | null;
   currentUserRole: "requester" | "donor";
   donorCooldownUntil: string | null;
-  createdAt: string;
-};
-
-export type MatchMessage = {
-  id: string;
-  senderUserId: string;
-  senderName: string;
-  content: string;
-  moderationStatus: "allowed" | "blocked";
-  moderationReason: string | null;
   createdAt: string;
 };

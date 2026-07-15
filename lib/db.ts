@@ -34,6 +34,11 @@ export async function ensureSchema() {
       await sql`ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ`;
       await sql`ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION`;
       await sql`ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION`;
+      await sql`ALTER TABLE hospitals DROP CONSTRAINT IF EXISTS hospitals_license_number_check`;
+      await sql`ALTER TABLE hospitals ADD CONSTRAINT hospitals_license_number_check CHECK (
+        char_length(license_number) BETWEEN 5 AND 40
+        AND license_number ~ '^[A-Z0-9][A-Z0-9/&.-]{3,38}[A-Z0-9]$'
+      ) NOT VALID`;
       await sql`CREATE TABLE IF NOT EXISTS medical_records (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(), mode TEXT NOT NULL CHECK (mode IN ('organ','blood')),
         role TEXT NOT NULL CHECK (role IN ('donor','patient')), name TEXT NOT NULL, cnic VARCHAR(13) NOT NULL,
@@ -50,6 +55,10 @@ export async function ensureSchema() {
       await sql`ALTER TABLE medical_records ADD CONSTRAINT medical_records_age_check CHECK (age BETWEEN 0 AND 120)`;
       await sql`ALTER TABLE medical_records DROP CONSTRAINT IF EXISTS medical_records_donor_min_age_check`;
       await sql`ALTER TABLE medical_records ADD CONSTRAINT medical_records_donor_min_age_check CHECK (role<>'donor' OR age>=18) NOT VALID`;
+      await sql`ALTER TABLE medical_records DROP CONSTRAINT IF EXISTS medical_records_blood_donor_age_check`;
+      await sql`ALTER TABLE medical_records ADD CONSTRAINT medical_records_blood_donor_age_check CHECK (
+        mode<>'blood' OR role<>'donor' OR age BETWEEN 18 AND 60
+      ) NOT VALID`;
       await sql`ALTER TABLE medical_records DROP CONSTRAINT IF EXISTS medical_records_quantity_check`;
       await sql`ALTER TABLE medical_records ADD CONSTRAINT medical_records_quantity_check CHECK ((mode='blood' AND quantity BETWEEN 1 AND 1000) OR (mode='organ' AND quantity IS NULL))`;
       await sql`ALTER TABLE medical_records DROP CONSTRAINT IF EXISTS medical_records_mode_role_cnic_key`;
@@ -101,19 +110,9 @@ export async function ensureSchema() {
         CHECK ((donor_user_id IS NOT NULL AND medical_record_id IS NULL) OR (donor_user_id IS NULL AND medical_record_id IS NOT NULL))
       )`;
       await sql`ALTER TABLE public_matches ADD COLUMN IF NOT EXISTS donor_listing_id UUID REFERENCES public_donor_listings(id) ON DELETE CASCADE`;
-      await sql`CREATE TABLE IF NOT EXISTS match_messages (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(), match_id UUID NOT NULL REFERENCES public_matches(id) ON DELETE CASCADE,
-        sender_user_id UUID NOT NULL REFERENCES public_users(id) ON DELETE CASCADE, content TEXT NOT NULL,
-        moderation_status TEXT NOT NULL CHECK (moderation_status IN ('allowed','blocked')), moderation_reason TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )`;
       await sql`CREATE TABLE IF NOT EXISTS public_search_events (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id UUID NOT NULL REFERENCES public_users(id) ON DELETE CASCADE,
         query_fingerprint VARCHAR(64) NOT NULL, ip_hash VARCHAR(64) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )`;
-      await sql`CREATE TABLE IF NOT EXISTS message_rate_events (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),user_id UUID NOT NULL REFERENCES public_users(id) ON DELETE CASCADE,
-        match_id UUID NOT NULL REFERENCES public_matches(id) ON DELETE CASCADE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )`;
       await sql`CREATE TABLE IF NOT EXISTS security_request_events (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),event_type TEXT NOT NULL CHECK(event_type IN ('signup','login')),
@@ -131,11 +130,8 @@ export async function ensureSchema() {
       await sql`WITH ranked AS (SELECT id,ROW_NUMBER() OVER(PARTITION BY medical_record_id ORDER BY created_at,id) AS position FROM public_matches WHERE status='active' AND medical_record_id IS NOT NULL) UPDATE public_matches SET status='cancelled',updated_at=NOW() WHERE id IN (SELECT id FROM ranked WHERE position>1)`;
       await sql`CREATE UNIQUE INDEX IF NOT EXISTS public_matches_active_listing_uidx ON public_matches (requester_id,donor_listing_id) WHERE status='active' AND donor_listing_id IS NOT NULL`;
       await sql`CREATE UNIQUE INDEX IF NOT EXISTS public_matches_active_record_uidx ON public_matches (medical_record_id) WHERE status='active' AND medical_record_id IS NOT NULL`;
-      await sql`CREATE INDEX IF NOT EXISTS match_messages_match_idx ON match_messages (match_id,created_at)`;
-      await sql`CREATE INDEX IF NOT EXISTS match_messages_sender_rate_idx ON match_messages (sender_user_id,created_at DESC)`;
       await sql`CREATE INDEX IF NOT EXISTS public_search_events_user_idx ON public_search_events (user_id,created_at DESC)`;
       await sql`CREATE INDEX IF NOT EXISTS public_search_events_ip_idx ON public_search_events (ip_hash,created_at DESC)`;
-      await sql`CREATE INDEX IF NOT EXISTS message_rate_events_user_idx ON message_rate_events (user_id,created_at DESC)`;
       await sql`CREATE INDEX IF NOT EXISTS security_request_events_ip_idx ON security_request_events (event_type,ip_hash,created_at DESC)`;
       await sql`CREATE INDEX IF NOT EXISTS security_request_events_account_idx ON security_request_events (event_type,account_fingerprint,created_at DESC)`;
       await sql`DELETE FROM security_request_events WHERE created_at<NOW()-INTERVAL '30 days'`;
@@ -171,6 +167,24 @@ export async function listNetworkOrganDonors(organ: string) {
       AND medical_records.role='donor'
       AND medical_records.organ=${organ}
       AND medical_records.age>=18
+      AND hospitals.role='hospital'
+      AND hospitals.verification_status='verified'
+      AND hospitals.email_verified_at>NOW()-INTERVAL '7 days'
+    ORDER BY medical_records.created_at DESC
+  `);
+  return rows.map(mapRecord);
+}
+
+export async function listNetworkBloodDonors() {
+  await ensureSchema(); const sql = database();
+  const rows = await withRetry(() => sql`
+    SELECT medical_records.*
+    FROM medical_records
+    INNER JOIN hospitals ON hospitals.id=medical_records.hospital_id
+    WHERE medical_records.mode='blood'
+      AND medical_records.role='donor'
+      AND medical_records.age BETWEEN 18 AND 60
+      AND medical_records.quantity>0
       AND hospitals.role='hospital'
       AND hospitals.verification_status='verified'
       AND hospitals.email_verified_at>NOW()-INTERVAL '7 days'
