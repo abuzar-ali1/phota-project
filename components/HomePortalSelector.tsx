@@ -37,7 +37,7 @@ export function HomePortalSelector({ hospital }: { hospital?: HospitalProfile })
           />
           <PortalCard
             href={hospital ? "/workspace" : "/login"}
-            image="/hospital.jfif"
+            image="/hospital.jpeg"
             imageAlt="Modern verified hospital building"
             accent="emerald"
             eyebrow="For verified medical facilities"
